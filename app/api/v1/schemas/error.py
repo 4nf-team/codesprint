@@ -1,7 +1,8 @@
 """Схемы ошибок для API v1."""
 
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ErrorResponse(BaseModel):
@@ -16,14 +17,8 @@ class ErrorResponse(BaseModel):
         timestamp: Время возникновения ошибки
     """
 
-    error: str = Field(..., description="Тип ошибки")
-    message: str = Field(..., description="Сообщение об ошибке")
-    details: Optional[Dict[str, Any]] = Field(None, description="Дополнительные детали")
-    request_id: Optional[str] = Field(None, description="ID запроса")
-    timestamp: str = Field(..., description="Время ошибки в ISO формате")
-
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": "validation_error",
                 "message": "Неверные данные в запросе",
@@ -32,6 +27,13 @@ class ErrorResponse(BaseModel):
                 "timestamp": "2024-01-15T10:30:00Z",
             }
         }
+    )
+
+    error: str = Field(..., description="Тип ошибки")
+    message: str = Field(..., description="Сообщение об ошибке")
+    details: dict[str, Any] | None = Field(None, description="Дополнительные детали")
+    request_id: str | None = Field(None, description="ID запроса")
+    timestamp: str = Field(..., description="Время ошибки в ISO формате")
 
 
 class ValidationErrorDetail(BaseModel):

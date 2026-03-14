@@ -5,6 +5,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.core.logging import configure_logging
 from app.models.database import close_db, init_db
 
@@ -22,7 +24,7 @@ async def main():
     try:
         await init_db()
         print("Database initialized successfully!")
-    except Exception as e:
+    except SQLAlchemyError as e:
         print(f"Failed to initialize database: {e}")
         sys.exit(1)
     finally:

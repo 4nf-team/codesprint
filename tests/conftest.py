@@ -1,10 +1,12 @@
 """Pytest конфигурация и фикстуры."""
 
 import asyncio
+import io
 from collections.abc import AsyncGenerator
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.main import app
 from app.models.database import AsyncSessionLocal, init_db
@@ -52,10 +54,6 @@ def sample_image_bytes() -> bytes:
         Байты тестового изображения
     """
     # Создаем простое тестовое изображение 100x100 красного цвета
-    import io
-
-    from PIL import Image
-
     image = Image.new("RGB", (100, 100), color="red")
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG")

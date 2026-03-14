@@ -1,10 +1,9 @@
 """Схемы ответов для API v1."""
 
-from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskStatus(StrEnum):
@@ -16,90 +15,157 @@ class TaskStatus(StrEnum):
     FAILED = "failed"
 
 
-class BoundingBox(BaseModel):
-    """Bounding box объекта."""
-
-    x: float = Field(..., description="Координата X левого верхнего угла")
-    y: float = Field(..., description="Координата Y левого верхнего угла")
-    width: float = Field(..., description="Ширина bounding box")
-    height: float = Field(..., description="Высота bounding box")
-
-
-class DetectedObject(BaseModel):
+class FaceResult(BaseModel):
     """
-    Обнаруженный объект.
+    Результат анализа одного лица.
 
     Attributes:
-        label: Название класса объекта
-        confidence: Уверенность обнаружения (0.0 - 1.0)
-        bbox: Bounding box объекта
+        face_index: Индекс лица в документе (начиная с 1)
+        bbox: Координаты bounding box [x1, y1, x2, y2] в пикселях
+        face_crop_b64: Base64-кодированное изображение лица в формате JPEG
+        is_ai_generated: True если лицо сгенерировано нейросетью
+        ai_confidence: Уверенность модели в диапазоне 0.0-1.0
+        realness_score: Процент реалистичности в диапазоне 0-100
+        is_unique: True если лицо уникально в документе
+        similarity_details: Текстовое описание похожести с другими лицами
+        argumentation: LLM-аргументация (доступна после запроса /api/argumentation)
     """
 
-    label: str = Field(..., description="Класс объекта")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Уверенность")
-    bbox: BoundingBox = Field(..., description="Bounding box")
+    face_index: int = Field(
+        ...,
+        description="Индекс лица в документе (начиная с 1)",
+        ge=1,
+        examples=[1, 2, 3],
+    )
+    bbox: list[float] = Field(
+        ...,
+        description="Координаты bounding box [x1, y1, x2, y2] в пикселях",
+        min_length=4,
+        max_length=4,
+        examples=[[120.0, 45.0, 380.0, 420.0]],
+    )
+    face_crop_b64: str | None = Field(
+        None, description="Base64-кодированное изображение лица в формате JPEG"
+    )
+    is_ai_generated: bool = Field(
+        ..., description="True если лицо сгенерировано нейросетью"
+    )
+    ai_confidence: float = Field(
+        ...,
+        description="Уверенность модели в диапазоне 0.0-1.0",
+        ge=0.0,
+        le=1.0,
+        examples=[0.9312],
+    )
+    realness_score: float = Field(
+        ...,
+        description="Процент реалистичности в диапазоне 0-100",
+        ge=0.0,
+        le=100.0,
+        examples=[93.12],
+    )
+    is_unique: bool = Field(..., description="True если лицо уникально в документе")
+    similarity_details: str = Field(
+        ...,
+        description="Текстовое описание похожести с другими лицами",
+        examples=[
+            "unique (no similar faces in session)",
+            "similar to face #1 (cosine: 0.82)",
+        ],
+    )
+    argumentation: str | None = Field(
+        None, description="LLM-аргументация (доступна после запроса /api/argumentation)"
+    )
 
-
-class AnalysisMetadata(BaseModel):
-    """
-    Метаданные анализа.
-
-    Attributes:
-        processing_time_ms: Время обработки в миллисекундах
-        model_version: Версия использованной модели
-        image_size: Размер изображения (ширина, высота)
-        timestamp: Время выполнения анализа
-    """
-
-    processing_time_ms: float = Field(..., description="Время обработки (мс)")
-    model_version: str = Field(..., description="Версия модели")
-    image_size: dict[str, int] = Field(..., description="Размер изображения")
-    timestamp: datetime = Field(..., description="Время анализа")
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "face_index": 1,
+                "bbox": [120.0, 45.0, 380.0, 420.0],
+                "face_crop_b64": "/9j/4AAQSkZJRgABAQAAAQABAAD...",
+                "is_ai_generated": False,
+                "ai_confidence": 0.9312,
+                "realness_score": 93.12,
+                "is_unique": True,
+                "similarity_details": "unique (no similar faces in session)",
+                "argumentation": None,
+            }
+        }
+    )
 
 
 class AnalysisResponse(BaseModel):
     """
-    Ответ на запрос анализа изображения.
+    Ответ на запрос анализа документа.
 
     Attributes:
-        task_id: ID задачи анализа
-        objects: Список обнаруженных объектов
-        metadata: Метаданные анализа
-        cached: Была ли информация взята из кэша
+        filename: Имя загруженного файла
+        total_images: Количество изображений в документе
+        total_faces: Общее количество обнаруженных лиц
+        faces: Список результатов анализа лиц
+        summary: Текстовое резюме результатов анализа
     """
 
-    task_id: str = Field(..., description="ID задачи анализа")
-    objects: list[DetectedObject] = Field(
-        default_factory=list, description="Обнаруженные объекты"
+    filename: str = Field(
+        ..., description="Имя загруженного файла", examples=["document.pdf"]
     )
-    metadata: AnalysisMetadata = Field(..., description="Метаданные")
-    cached: bool = Field(False, description="Использовался ли кэш")
+    total_images: int = Field(
+        ..., description="Количество изображений в документе", ge=0, examples=[2]
+    )
+    total_faces: int = Field(
+        ..., description="Общее количество обнаруженных лиц", ge=0, examples=[3]
+    )
+    faces: list[FaceResult] = Field(
+        default_factory=list, description="Список результатов анализа лиц"
+    )
+    summary: str = Field(
+        ...,
+        description="Текстовое резюме результатов анализа",
+        examples=[
+            "Found 2 image(s), 3 face(s). "
+            "1 face(s) likely AI-generated. "
+            "1 face(s) may not be unique."
+        ],
+    )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
-                "task_id": "550e8400-e29b-41d4-a716-446655440000",
-                "objects": [
+                "filename": "document.pdf",
+                "total_images": 2,
+                "total_faces": 3,
+                "faces": [
                     {
-                        "label": "person",
-                        "confidence": 0.95,
-                        "bbox": {
-                            "x": 100.0,
-                            "y": 50.0,
-                            "width": 200.0,
-                            "height": 300.0,
-                        },
-                    }
+                        "face_index": 1,
+                        "bbox": [120.0, 45.0, 380.0, 420.0],
+                        "face_crop_b64": "/9j/4AAQSkZJRgABAQAAAQABAAD...",
+                        "is_ai_generated": False,
+                        "ai_confidence": 0.9312,
+                        "realness_score": 93.12,
+                        "is_unique": True,
+                        "similarity_details": "unique (no similar faces in session)",
+                        "argumentation": None,
+                    },
+                    {
+                        "face_index": 2,
+                        "bbox": [50.0, 100.0, 200.0, 300.0],
+                        "face_crop_b64": "/9j/4AAQSkZJRgABAQAAAQABAAD...",
+                        "is_ai_generated": True,
+                        "ai_confidence": 0.8745,
+                        "realness_score": 12.55,
+                        "is_unique": False,
+                        "similarity_details": "similar to face #1 (cosine: 0.82)",
+                        "argumentation": None,
+                    },
                 ],
-                "metadata": {
-                    "processing_time_ms": 150.5,
-                    "model_version": "yolov5s-v1.0",
-                    "image_size": {"width": 640, "height": 480},
-                    "timestamp": "2024-01-15T10:30:00Z",
-                },
-                "cached": False,
+                "summary": (
+                    "Found 2 image(s), 3 face(s). "
+                    "1 face(s) likely AI-generated. "
+                    "1 face(s) may not be unique."
+                ),
             }
         }
+    )
 
 
 class TaskStatusResponse(BaseModel):
@@ -118,32 +184,19 @@ class TaskStatusResponse(BaseModel):
     result: dict[str, Any] | None = Field(None, description="Результат анализа")
     message: str | None = Field(None, description="Сообщение о статусе")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "task_id": "550e8400-e29b-41d4-a716-446655440000",
                 "status": "completed",
                 "result": {
-                    "task_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "objects": [],
-                    "metadata": {
-                        "processing_time_ms": 150.5,
-                        "model_version": "yolov5s-v1.0",
-                        "image_size": {"width": 640, "height": 480},
-                        "timestamp": "2024-01-15T10:30:00Z",
-                    },
-                    "cached": False,
+                    "filename": "document.pdf",
+                    "total_images": 2,
+                    "total_faces": 3,
+                    "faces": [],
+                    "summary": "Found 2 image(s), 3 face(s).",
                 },
                 "message": "Анализ завершен",
             }
         }
-
-
-class BatchAnalysisResponse(BaseModel):
-    """Ответ на пакетный анализ."""
-
-    task_ids: list[str] = Field(..., description="ID задач анализа")
-    total_objects: int = Field(
-        ..., description="Общее количество обнаруженных объектов"
     )
-    processing_time_ms: float = Field(..., description="Общее время обработки (мс)")

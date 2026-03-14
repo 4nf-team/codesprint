@@ -3,7 +3,7 @@
 import traceback
 import uuid
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -40,7 +40,9 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         except HTTPException as exc:
             # FastAPI HTTPException - возвращаем как есть
             logger.warning(
-                f"HTTPException: {exc.status_code} - {exc.detail}",
+                "HTTPException: %s - %s",
+                exc.status_code,
+                exc.detail,
                 extra={"path": request.url.path, "status_code": exc.status_code},
             )
 
@@ -51,7 +53,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                     message=exc.detail,
                     details=None,
                     request_id=None,
-                    timestamp=datetime.utcnow().isoformat() + "Z",
+                    timestamp=datetime.now(UTC).isoformat() + "Z",
                 ).dict(),
             )
 
@@ -60,8 +62,8 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
             error_id = str(uuid.uuid4())[:8]
 
             logger.exception(
-                f"Unhandled exception (ID: {error_id}): {exc}",
-                exc_info=True,
+                "Unhandled exception (ID: %s)",
+                error_id,
                 extra={
                     "path": request.url.path,
                     "method": request.method,
@@ -85,6 +87,6 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                     message="Внутренняя ошибка сервера",
                     details=details,
                     request_id=error_id,
-                    timestamp=datetime.utcnow().isoformat() + "Z",
+                    timestamp=datetime.now(UTC).isoformat() + "Z",
                 ).dict(),
             )

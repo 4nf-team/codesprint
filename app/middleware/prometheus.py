@@ -1,7 +1,8 @@
 """Middleware для сбора метрик Prometheus."""
 
 import time
-from typing import Callable
+from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -36,18 +37,6 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
-            duration = time.time() - start_time
-
-            # Записываем метрики
-            MetricsService.record_request(
-                method=request.method, endpoint=endpoint, status=response.status_code
-            )
-            MetricsService.record_response_time(
-                endpoint=endpoint, duration_seconds=duration
-            )
-
-            return response
-
         except Exception as exc:
             duration = time.time() - start_time
 
@@ -61,3 +50,15 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             )
 
             raise
+        else:
+            duration = time.time() - start_time
+
+            # Записываем метрики
+            MetricsService.record_request(
+                method=request.method, endpoint=endpoint, status=response.status_code
+            )
+            MetricsService.record_response_time(
+                endpoint=endpoint, duration_seconds=duration
+            )
+
+            return response

@@ -1,9 +1,6 @@
 """Тесты health check эндпоинта."""
 
-import pytest
 from fastapi import status
-
-from tests.conftest import client
 
 
 class TestHealthEndpoint:

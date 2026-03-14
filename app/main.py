@@ -5,6 +5,7 @@ FastAPI приложение для анализа изображений.
 
 from contextlib import asynccontextmanager
 
+from celery.exceptions import CeleryError
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -16,7 +17,6 @@ from app.core.logging import configure_logging
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.prometheus import PrometheusMiddleware
-from app.ml.model import MLModel
 from app.services.cache import CacheService
 from app.services.database import DatabaseService, close_db, init_db
 from app.workers.celery_app import celery_app
@@ -24,7 +24,6 @@ from app.workers.celery_app import celery_app
 # Инициализация сервисов
 cache_service = CacheService()
 db_service = DatabaseService()
-ml_model = MLModel()
 
 
 @asynccontextmanager
@@ -44,10 +43,6 @@ async def lifespan(app: FastAPI):
     await cache_service.connect()
     app.state.cache_service = cache_service
 
-    # Загрузка ML модели
-    await ml_model.load()
-    app.state.ml_model = ml_model
-
     # Проверка доступности Celery
     try:
         # Простая проверка - пытаемся получить информацию о worker'ах
@@ -57,7 +52,7 @@ async def lifespan(app: FastAPI):
             app.state.celery_available = True
         else:
             app.state.celery_available = False
-    except Exception:
+    except CeleryError:
         app.state.celery_available = False
 
     yield

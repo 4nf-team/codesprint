@@ -1,7 +1,7 @@
 """Сервис сбора метрик на основе Prometheus client."""
 
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY
-from typing import Dict, Any
+
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
 
 from app.core.logging import get_logger
 
@@ -121,4 +121,3 @@ class MetricsService:
         """Сброс всех метрик (для тестов)."""
         # Prometheus client не поддерживает сброс через стандартный API
         # Для тестов нужно пересозвать метрики или использовать custom registry
-        pass

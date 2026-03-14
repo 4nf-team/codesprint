@@ -2,16 +2,20 @@
 """Создание резервной копии базы данных."""
 
 import asyncio
-import sys
 import subprocess
-from datetime import datetime
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
+
+from app.core.config import settings
+from app.core.logging import configure_logging
 
 root_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(root_dir))
 
-from app.core.config import settings
-from app.core.logging import configure_logging
+# Константы для парсинга URL базы данных
+EXPECTED_PARTS_COUNT = 2
+EXPECTED_USER_PASS_COUNT = 2
 
 configure_logging()
 
@@ -37,14 +41,15 @@ async def backup_database():
 
     # Разбор строки подключения
     parts = conn_str.split("@")
-    if len(parts) != 2:
+    if len(parts) != EXPECTED_PARTS_COUNT:
         print("Invalid database URL format")
         sys.exit(1)
 
     user_pass = parts[0].split(":")
     host_port_db = parts[1].split("/")
 
-    if len(user_pass) != 2 or len(host_port_db) < 2:
+    if (len(user_pass) != EXPECTED_USER_PASS_COUNT
+            or len(host_port_db) < EXPECTED_PARTS_COUNT):
         print("Invalid database URL format")
         sys.exit(1)
 
@@ -60,7 +65,7 @@ async def backup_database():
     backup_dir.mkdir(exist_ok=True)
 
     # Имя файла бэкапа
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     backup_file = backup_dir / f"backup_{dbname}_{timestamp}.sql"
 
     # Установка переменной окружения для пароля
@@ -86,7 +91,7 @@ async def backup_database():
     print(f"Running: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd, env=env, check=True, capture_output=True, text=True
         )
         print(f"Backup created successfully: {backup_file}")

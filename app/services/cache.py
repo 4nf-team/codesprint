@@ -1,10 +1,14 @@
 """Сервис кэширования на основе Redis."""
 
-import json
 import hashlib
-from typing import Any, Optional
+import json
+from contextlib import suppress
+from typing import TYPE_CHECKING, Any
+
 import redis.asyncio as redis
-from redis.asyncio import Redis
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 from app.core.config import settings
 
@@ -19,7 +23,7 @@ class CacheService:
     """
 
     def __init__(self):
-        self.redis_client: Optional[Redis] = None
+        self.redis_client: Redis | None = None
         self.default_ttl = settings.REDIS_CACHE_TTL
         self._enabled = settings.CACHE_ENABLED
 
@@ -54,7 +58,7 @@ class CacheService:
         hash_digest = hashlib.sha256(hash_input).hexdigest()
         return f"{prefix}:{hash_digest}"
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """
         Получение значения из кэша.
 
@@ -69,14 +73,15 @@ class CacheService:
 
         try:
             value = await self.redis_client.get(key)
+        except redis.RedisError:
+            # Логировать ошибку
+            return None
+        else:
             if value:
                 return json.loads(value)
             return None
-        except Exception as e:
-            # Логировать ошибку
-            return None
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """
         Установка значения в кэш.
 
@@ -95,10 +100,11 @@ class CacheService:
             ttl = ttl or self.default_ttl
             serialized = json.dumps(value)
             await self.redis_client.setex(key, ttl, serialized)
-            return True
-        except Exception as e:
+        except redis.RedisError:
             # Логировать ошибку
             return False
+        else:
+            return True
 
     async def delete(self, key: str) -> bool:
         """
@@ -115,9 +121,10 @@ class CacheService:
 
         try:
             result = await self.redis_client.delete(key)
-            return result > 0
-        except Exception:
+        except redis.RedisError:
             return False
+        else:
+            return result > 0
 
     async def exists(self, key: str) -> bool:
         """
@@ -133,19 +140,19 @@ class CacheService:
             return False
 
         try:
-            return await self.redis_client.exists(key) > 0
-        except Exception:
+            result = await self.redis_client.exists(key)
+        except redis.RedisError:
             return False
+        else:
+            return result > 0
 
     async def clear(self):
         """Очистка всего кэша."""
         if self._enabled and self.redis_client:
-            try:
+            with suppress(redis.RedisError):
                 await self.redis_client.flushdb()
-            except Exception:
-                pass
 
-    def get_cache_key(self, image_hash: str, user_id: Optional[str] = None) -> str:
+    def get_cache_key(self, image_hash: str, user_id: str | None = None) -> str:
         """
         Генерация ключа кэша для анализа изображения.
 

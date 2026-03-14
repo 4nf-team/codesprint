@@ -30,7 +30,6 @@ class RateLimitService:
         """Проверка rate limit."""
         # В реальной реализации будет проверка через limiter
         # Для заглушки просто пропускаем
-        pass
 
 
 async def get_current_user(request: Request) -> dict[str, Any]:

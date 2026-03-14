@@ -1,10 +1,9 @@
 """Модуль безопасности и аутентификации."""
 
 import hmac
-import hashlib
 import time
-from typing import Optional, Dict, Any
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -29,9 +28,9 @@ class APIKeyAuth:
     def __init__(self, secret_key: str):
         self.secret_key = secret_key
         # В реальном приложении это будет из БД
-        self._users: Dict[str, User] = {}
+        self._users: dict[str, User] = {}
 
-    def verify_key(self, api_key: str) -> Optional[User]:
+    def verify_key(self, api_key: str) -> User | None:
         """
         Проверка API ключа.
 
@@ -64,7 +63,7 @@ class RateLimiter:
     """
 
     def __init__(self) -> None:
-        self._buckets: Dict[str, Dict[str, Any]] = {}
+        self._buckets: dict[str, dict[str, Any]] = {}
 
     def is_allowed(self, key: str, limit: int, period: int = 60) -> bool:
         """
@@ -105,7 +104,7 @@ class RateLimiter:
 
         return False
 
-    def reset(self, key: str = None) -> None:
+    def reset(self, key: str | None = None) -> None:
         """Сброс счетчика."""
         if key:
             self._buckets.pop(key, None)

@@ -1,8 +1,8 @@
 """Middleware для логирования HTTP запросов."""
 
 import time
-import json
-from typing import Callable
+from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -53,9 +53,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             try:
                 body = await request.body()
                 # Восстанавливаем request для дальнейшей обработки
-                await request._receive()
-            except Exception as e:
-                logger.warning(f"Failed to read request body: {e}")
+                await request.receive()
+            except RuntimeError as e:
+                logger.warning("Failed to read request body: %s", e)
 
         # Обработка запроса
         response = await call_next(request)
@@ -79,7 +79,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 log_data["request_body"] = body.decode("utf-8")[
                     :1000
                 ]  # Ограничиваем размер
-            except Exception:
+            except UnicodeDecodeError:
                 log_data["request_body"] = "<binary data>"
 
         # Логируем в JSON формате

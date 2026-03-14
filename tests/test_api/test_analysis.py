@@ -1,9 +1,6 @@
 """Тесты эндпоинта анализа изображений."""
 
-import pytest
 from fastapi import status
-
-from tests.conftest import client, sample_image_bytes
 
 
 class TestAnalysisEndpoint:

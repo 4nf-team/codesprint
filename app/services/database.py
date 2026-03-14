@@ -1,20 +1,20 @@
 """CRUD операции с базой данных."""
 
-from typing import Optional, Dict, Any, List
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
-from sqlalchemy.exc import SQLAlchemyError
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any
 
+from sqlalchemy import select, update
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.logging import get_logger
 from app.models.database import (
     AnalysisTask,
-    UserAPIKey,
-    engine,
-    Base,
     AsyncSessionLocal,
+    Base,
+    engine,
 )
-from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -40,7 +40,7 @@ class DatabaseService:
         session: Асинхронная сессия SQLAlchemy (опционально)
     """
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self._session = session
 
     async def check_connection(self) -> bool:
@@ -53,10 +53,11 @@ class DatabaseService:
         async with AsyncSessionLocal() as session:
             try:
                 await session.execute(select(1))
-                return True
-            except Exception as e:
-                logger.error(f"Database connection check failed: {e}")
+            except Exception:
+                logger.exception("Database connection check failed")
                 return False
+            else:
+                return True
 
     async def create_analysis_task(self, user_id: str, image_hash: str) -> str:
         """
@@ -81,15 +82,16 @@ class DatabaseService:
             try:
                 await session.commit()
                 await session.refresh(task)
-                logger.info(f"Created analysis task {task_id} for user {user_id}")
-                return task_id
-            except SQLAlchemyError as e:
+            except SQLAlchemyError:
                 await session.rollback()
-                logger.error(f"Failed to create analysis task: {e}")
+                logger.exception("Failed to create analysis task")
                 raise
+            else:
+                logger.info("Created analysis task %s for user %s", task_id, user_id)
+                return task_id
 
     async def update_task_result(
-        self, task_id: str, result: Dict[str, Any], processing_time_ms: float
+        self, task_id: str, result: dict[str, Any], processing_time_ms: float
     ) -> bool:
         """
         Обновление результата задачи.
@@ -111,7 +113,7 @@ class DatabaseService:
                         status="completed",
                         result=result,
                         processing_time_ms=processing_time_ms,
-                        completed_at=datetime.utcnow(),
+                        completed_at=datetime.now(UTC),
                     )
                 )
 
@@ -119,15 +121,14 @@ class DatabaseService:
                 await session.commit()
 
                 if result.rowcount > 0:
-                    logger.info(f"Updated task {task_id} with result")
+                    logger.info("Updated task %s with result", task_id)
                     return True
-                else:
-                    logger.warning(f"Task {task_id} not found")
-                    return False
+                logger.warning("Task %s not found", task_id)
+                return False
 
-            except SQLAlchemyError as e:
+            except SQLAlchemyError:
                 await session.rollback()
-                logger.error(f"Failed to update task {task_id}: {e}")
+                logger.exception("Failed to update task %s", task_id)
                 return False
 
     async def update_task_error(self, task_id: str, error_message: str) -> bool:
@@ -149,7 +150,7 @@ class DatabaseService:
                     .values(
                         status="failed",
                         error=error_message,
-                        completed_at=datetime.utcnow(),
+                        completed_at=datetime.now(UTC),
                     )
                 )
 
@@ -157,16 +158,16 @@ class DatabaseService:
                 await session.commit()
 
                 if result.rowcount > 0:
-                    logger.info(f"Updated task {task_id} with error")
+                    logger.info("Updated task %s with error", task_id)
                     return True
                 return False
 
-            except SQLAlchemyError as e:
+            except SQLAlchemyError:
                 await session.rollback()
-                logger.error(f"Failed to update task {task_id} with error: {e}")
+                logger.exception("Failed to update task %s with error", task_id)
                 return False
 
-    async def get_analysis_result(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_analysis_result(self, task_id: str) -> dict[str, Any] | None:
         """
         Получение результата анализа по ID задачи.
 
@@ -196,13 +197,13 @@ class DatabaseService:
                         else None,
                     }
 
+            except SQLAlchemyError:
+                logger.exception("Failed to get task %s", task_id)
+                return None
+            else:
                 return None
 
-            except SQLAlchemyError as e:
-                logger.error(f"Failed to get task {task_id}: {e}")
-                return None
-
-    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any] | None:
         """
         Получение статуса задачи по ID.
 
@@ -233,15 +234,15 @@ class DatabaseService:
                         else None,
                     }
 
+            except SQLAlchemyError:
+                logger.exception("Failed to get task %s", task_id)
                 return None
-
-            except SQLAlchemyError as e:
-                logger.error(f"Failed to get task {task_id}: {e}")
+            else:
                 return None
 
     async def get_user_tasks(
         self, user_id: str, limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Получение задач пользователя.
 
@@ -276,13 +277,13 @@ class DatabaseService:
                     for task in tasks
                 ]
 
-            except SQLAlchemyError as e:
-                logger.error(f"Failed to get tasks for user {user_id}: {e}")
+            except SQLAlchemyError:
+                logger.exception("Failed to get tasks for user %s", user_id)
                 return []
 
     async def get_task_by_hash(
-        self, image_hash: str, user_id: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, image_hash: str, user_id: str | None = None
+    ) -> dict[str, Any] | None:
         """
         Поиск завершенной задачи по хэшу изображения.
 
@@ -311,8 +312,8 @@ class DatabaseService:
                 if task:
                     return task.result
 
-                return None
-
             except SQLAlchemyError as e:
-                logger.error(f"Failed to get task by hash {image_hash}: {e}")
+                logger.exception("Failed to get task by hash %s: %s", image_hash, e)
+                return None
+            else:
                 return None

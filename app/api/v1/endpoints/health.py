@@ -23,8 +23,9 @@ async def health_check(request: Request, db: AsyncSession = Depends(get_db)):
     try:
         await db_service.check_connection()
         db_status = True
-    except Exception:
+    except Exception as exc:
         db_status = False
+        print(f"Database health check failed: {exc}")
 
     # Проверяем Redis кэш
     cache_status = False
@@ -35,24 +36,27 @@ async def health_check(request: Request, db: AsyncSession = Depends(get_db)):
             await cache_service.redis_client.ping()
             cache_status = True
         await cache_service.disconnect()
-    except Exception:
+    except Exception as exc:
         cache_status = False
+        print(f"Cache health check failed: {exc}")
 
     # Проверяем ML модель
     model_status = False
     try:
         if hasattr(request.app.state, "ml_model") and request.app.state.ml_model:
             model_status = True
-    except Exception:
+    except Exception as exc:
         model_status = False
+        print(f"Model health check failed: {exc}")
 
     # Проверяем Celery
     celery_status = False
     try:
         if hasattr(request.app.state, "celery_available"):
             celery_status = request.app.state.celery_available
-    except Exception:
+    except Exception as exc:
         celery_status = False
+        print(f"Celery health check failed: {exc}")
 
     all_healthy = db_status and cache_status
 
@@ -69,7 +73,7 @@ async def health_check(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/health/ready")
-async def readiness_check(request: Request, db: AsyncSession = Depends(get_db)):
+async def readiness_check(_request: Request, db: AsyncSession = Depends(get_db)):
     """
     Проверка готовности сервиса принимать трафик.
 
@@ -80,8 +84,8 @@ async def readiness_check(request: Request, db: AsyncSession = Depends(get_db)):
     db_service = DatabaseService(db)
     try:
         await db_service.check_connection()
-    except Exception:
-        return {"ready": False, "reason": "database unavailable"}
+    except Exception as exc:
+        return {"ready": False, "reason": f"database unavailable: {exc}"}
 
     return {"ready": True}
 
