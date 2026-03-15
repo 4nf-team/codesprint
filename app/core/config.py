@@ -1,6 +1,6 @@
 """Конфигурация приложения через Pydantic Settings."""
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,14 +17,25 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
 
-    # API
-    API_KEY: str = "changeme"
+    # Security
+    SECRET_KEY: str = ""
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ALGORITHM: str = "HS256"
+
+    # API_KEY для development/testing.
+    # В production должен быть установлен через env переменную.
+    # Если API_KEY пустой, аутентификация через статический API-ключ отключена.
+    API_KEY: str = ""
     API_KEY_HEADER: str = "X-API-Key"
 
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_DEFAULT: str = "100/minute"
     RATE_LIMIT_ANALYZE: str = "10/minute"
+    RATE_LIMIT_FAIL_OPEN: bool = (
+        False  # Блокировать запросы при недоступности Redis (безопаснее)
+    )
 
     # CORS
     ALLOWED_ORIGINS: list[str] | str = [
@@ -48,7 +59,6 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
     # ML Model
-    MODEL_PATH: str = "/app/models/yolov5s.pt"
     MODEL_CONFIDENCE_THRESHOLD: float = 0.5
     MODEL_DEVICE: str = "cuda"  # или "cpu"
 
@@ -63,10 +73,29 @@ class Settings(BaseSettings):
     # Monitoring
     PROMETHEUS_ENABLED: bool = True
     SENTRY_DSN: str | None = None
+    GF_SECURITY_ADMIN_PASSWORD: str | None = None
 
     # File Upload
     MAX_IMAGE_SIZE_MB: int = 10
-    ALLOWED_IMAGE_FORMATS: list[str] | str = ["JPEG", "PNG", "WEBP"]
+    ALLOWED_IMAGE_FORMATS: list[str] | str = ["JPEG", "PNG", "WEBP", "PDF"]
+
+    # Telegram
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_WEBAPP_URL: str = ""
+
+    @model_validator(mode="after")
+    def validate_security_settings(self) -> "Settings":
+        """Валидация критических настроек безопасности."""
+        if not self.SECRET_KEY:
+            if self.ENVIRONMENT == "production":
+                msg = (
+                    "SECRET_KEY must be set in production! "
+                    "Set SECRET_KEY environment variable."
+                )
+                raise ValueError(msg)
+            # Для development используем временный ключ
+            self.SECRET_KEY = "dev-secret-key-do-not-use-in-production"
+        return self
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod

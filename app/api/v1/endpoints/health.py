@@ -1,16 +1,21 @@
 """Health check эндпоинт."""
 
 from fastapi import APIRouter, Depends, Request
+from redis import RedisError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.models.database import get_db
 from app.services.cache import CacheService
 from app.services.database import DatabaseService
 
-router = APIRouter()
+logger = get_logger(__name__)
+
+router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("/health")
+@router.get("/")
 async def health_check(request: Request, db: AsyncSession = Depends(get_db)):
     """
     Проверка здоровья сервиса и его зависимостей.
@@ -23,9 +28,9 @@ async def health_check(request: Request, db: AsyncSession = Depends(get_db)):
     try:
         await db_service.check_connection()
         db_status = True
-    except Exception as exc:
+    except (SQLAlchemyError, OSError):
         db_status = False
-        print(f"Database health check failed: {exc}")
+        logger.exception("Database health check failed")
 
     # Проверяем Redis кэш
     cache_status = False
@@ -36,27 +41,27 @@ async def health_check(request: Request, db: AsyncSession = Depends(get_db)):
             await cache_service.redis_client.ping()
             cache_status = True
         await cache_service.disconnect()
-    except Exception as exc:
+    except (RedisError, OSError):
         cache_status = False
-        print(f"Cache health check failed: {exc}")
+        logger.exception("Cache health check failed")
 
     # Проверяем ML модель
     model_status = False
     try:
         if hasattr(request.app.state, "ml_model") and request.app.state.ml_model:
             model_status = True
-    except Exception as exc:
+    except (AttributeError, TypeError):
         model_status = False
-        print(f"Model health check failed: {exc}")
+        logger.exception("Model health check failed")
 
     # Проверяем Celery
     celery_status = False
     try:
         if hasattr(request.app.state, "celery_available"):
             celery_status = request.app.state.celery_available
-    except Exception as exc:
+    except (AttributeError, TypeError):
         celery_status = False
-        print(f"Celery health check failed: {exc}")
+        logger.exception("Celery health check failed")
 
     all_healthy = db_status and cache_status
 
@@ -72,7 +77,7 @@ async def health_check(request: Request, db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.get("/health/ready")
+@router.get("/ready")
 async def readiness_check(_request: Request, db: AsyncSession = Depends(get_db)):
     """
     Проверка готовности сервиса принимать трафик.
@@ -84,13 +89,14 @@ async def readiness_check(_request: Request, db: AsyncSession = Depends(get_db))
     db_service = DatabaseService(db)
     try:
         await db_service.check_connection()
-    except Exception as exc:
-        return {"ready": False, "reason": f"database unavailable: {exc}"}
+    except (SQLAlchemyError, OSError):
+        logger.exception("Readiness check failed")
+        return {"ready": False, "reason": "database unavailable"}
 
     return {"ready": True}
 
 
-@router.get("/health/live")
+@router.get("/live")
 async def liveness_check():
     """
     Liveness probe для Kubernetes.

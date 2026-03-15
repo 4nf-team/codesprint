@@ -48,8 +48,10 @@ async def backup_database():
     user_pass = parts[0].split(":")
     host_port_db = parts[1].split("/")
 
-    if (len(user_pass) != EXPECTED_USER_PASS_COUNT
-            or len(host_port_db) < EXPECTED_PARTS_COUNT):
+    if (
+        len(user_pass) != EXPECTED_USER_PASS_COUNT
+        or len(host_port_db) < EXPECTED_PARTS_COUNT
+    ):
         print("Invalid database URL format")
         sys.exit(1)
 
@@ -91,9 +93,7 @@ async def backup_database():
     print(f"Running: {' '.join(cmd)}")
 
     try:
-        subprocess.run(
-            cmd, env=env, check=True, capture_output=True, text=True
-        )
+        subprocess.run(cmd, env=env, check=True, capture_output=True, text=True)
         print(f"Backup created successfully: {backup_file}")
         print(f"Size: {backup_file.stat().st_size} bytes")
         return str(backup_file)

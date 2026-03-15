@@ -2,15 +2,13 @@ services:
   # PostgreSQL база данных
   postgres:
     image: postgres:15-alpine
-    container_name: image-analysis-postgres
+    container_name: postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: image_analysis
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -22,12 +20,10 @@ services:
   # Redis для кэширования
   redis:
     image: redis:7-alpine
-    container_name: image-analysis-redis
+    container_name: redis
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -36,26 +32,53 @@ services:
     networks:
       - app-network
 
+  # Миграции базы данных
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: migrations
+    command: alembic upgrade head
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/image_analysis
+      - SECRET_KEY=dev-secret-key-do-not-use-in-production
+      - ENVIRONMENT=development
+    volumes:
+      - ./alembic:/app/alembic
+      - ./app:/app/app
+      - ./alembic.ini:/app/alembic.ini
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
+
   # Celery Worker
   celery:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: image-analysis-celery
+    container_name: celery
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/image_analysis
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - SECRET_KEY=${SECRET_KEY}
     volumes:
       - ./app:/app/app
       - ./models:/app/models
+      - ./.env:/app/.env:ro
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     networks:
       - app-network
     restart: unless-stopped
@@ -65,21 +88,26 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: image-analysis-celery-beat
+    container_name: celery-beat
     command: celery -A app.workers.celery_app beat --loglevel=info
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/image_analysis
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - SECRET_KEY=${SECRET_KEY}
     volumes:
       - ./app:/app/app
       - ./models:/app/models
+      - ./.env:/app/.env:ro
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
       celery:
         condition: service_started
     networks:
@@ -87,11 +115,11 @@ services:
     restart: unless-stopped
 
   # Основное FastAPI приложение
-  app:
+  fastapi:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: image-analysis-app
+    container_name: fastapi
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/image_analysis
       - REDIS_URL=redis://redis:6379/0
@@ -100,17 +128,20 @@ services:
       - API_KEY=${API_KEY:-dev-api-key-12345}
       - DEBUG=${DEBUG:-False}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - SECRET_KEY=${SECRET_KEY}
     volumes:
       - ./app:/app/app
       - ./models:/app/models
       - ./logs:/app/logs
-    ports:
-      - "8000:8000"
+      - ./.env:/app/.env:ro
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
       celery:
         condition: service_started
     healthcheck:
@@ -126,7 +157,7 @@ services:
   # Nginx reverse proxy
   nginx:
     image: nginx:alpine
-    container_name: image-analysis-nginx
+    container_name: nginx
     ports:
       - "80:80"
       - "443:443"
@@ -134,7 +165,7 @@ services:
       - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./logs/nginx:/var/log/nginx
     depends_on:
-      - app
+      - fastapi
     networks:
       - app-network
     restart: unless-stopped
@@ -142,7 +173,7 @@ services:
   # Prometheus
   prometheus:
     image: prom/prometheus:latest
-    container_name: image-analysis-prometheus
+    container_name: prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -153,8 +184,6 @@ services:
     volumes:
       - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
     networks:
       - app-network
     restart: unless-stopped
@@ -162,15 +191,15 @@ services:
   # Grafana
   grafana:
     image: grafana/grafana:latest
-    container_name: image-analysis-grafana
+    container_name: grafana
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
       - GF_INSTALL_PLUGINS=redis-datasource
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-    ports:
-      - "3000:3000"
     depends_on:
       - prometheus
     networks:
@@ -180,7 +209,7 @@ services:
   # Node Exporter (метрики хоста)
   node-exporter:
     image: prom/node-exporter:latest
-    container_name: image-analysis-node-exporter
+    container_name: node-exporter
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -190,8 +219,6 @@ services:
       - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    ports:
-      - "9100:9100"
     networks:
       - app-network
     restart: unless-stopped
@@ -199,7 +226,7 @@ services:
   # cAdvisor (метрики контейнеров)
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
-    container_name: image-analysis-cadvisor
+    container_name: cadvisor
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -208,8 +235,6 @@ services:
       - /dev/disk/:/dev/disk:ro
     devices:
       - /dev/kmsg
-    ports:
-      - "8080:8080"
     networks:
       - app-network
     restart: unless-stopped

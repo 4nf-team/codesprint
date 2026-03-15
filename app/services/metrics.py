@@ -1,6 +1,5 @@
 """Сервис сбора метрик на основе Prometheus client."""
 
-
 from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
 
 from app.core.logging import get_logger

@@ -9,37 +9,31 @@ dependencies = [
     "fastapi[standard]>=0.135.1",
     "uvicorn[standard]>=0.41.0",
     "python-multipart>=0.0.22",
-
     # База данных
     "sqlalchemy[asyncio]>=2.0.0",
     "asyncpg>=0.29.0",
     "alembic>=1.13.0",
-
     # Кэширование
     "redis>=5.0.0",
     "redis[hiredis]>=5.0.0",
-
     # Celery и очередь задач
     "celery[redis]>=5.3.0",
     "flower>=2.0.0",
-
     # Конфигурация и валидация
     "pydantic-settings>=2.0.0",
     "pydantic>=2.0.0",
-
     # Безопасность и rate limiting
     "slowapi>=0.1.9",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
-
     # Мониторинг
     "prometheus-fastapi-instrumentator>=6.0.0",
     "prometheus-client>=0.19.0",
-
     # Утилиты
     "python-dotenv>=1.0.0",
     "httpx>=0.25.0",
     "aiofiles>=23.0.0",
+    "argon2-cffi>=25.1.0",
 ]
 
 [project.optional-dependencies]
@@ -49,9 +43,6 @@ dev = [
     "pytest-cov>=4.0.0",
     "pytest-mock>=3.10.0",
     "black>=23.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0.0",
-    "pre-commit>=3.0.0",
     "ipython>=8.0.0",
     "jupyter>=1.0.0",
 ]
@@ -70,7 +61,7 @@ target-version = ['py311']
 [tool.ruff]
 line-length = 88
 lint.select = ["E", "F", "W", "I", "N", "UP", "YTT", "BLE", "A", "C4", "DTZ", "T10", "EM", "ISC", "ICN", "G", "INP", "PIE", "PT", "Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "PD", "PL", "TRY", "NPY", "RUF"]
-lint.ignore = ["RUF001", "RUF002", "RUF003"]
+lint.ignore = ["RUF001", "RUF002", "RUF003", "TRY300"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "PLR2004", "PT"]
@@ -116,4 +107,13 @@ addopts = [
     "--strict-config",
     "--tb=short",
     "--disable-warnings",
+]
+
+[dependency-groups]
+dev = [
+    "pillow>=12.1.1",
+    "pytest>=9.0.2",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
 ]

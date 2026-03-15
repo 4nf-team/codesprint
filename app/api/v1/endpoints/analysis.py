@@ -23,16 +23,16 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.api.v1.deps import RateLimitService, get_current_user
+from app.api.v1.deps import get_current_user, rate_limit_dependency
 from app.api.v1.schemas.error import ErrorResponse
 from app.api.v1.schemas.response import TaskStatus, TaskStatusResponse
 from app.workers.tasks import analyze_image_task
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["analysis"])
 
 # Поддерживаемые форматы файлов
 SUPPORTED_MIME_TYPES = {
@@ -68,12 +68,11 @@ MIN_PDF_SIZE = 100
     description="Загружает и анализирует документ (PDF или изображение) на наличие лиц",
 )
 async def analyze_document(
-    _request: Request,
     file: UploadFile = File(
         ..., description="Документ для анализа (PDF, JPEG, PNG, WebP или BMP)"
     ),
     user: dict = Depends(get_current_user),
-    rate_limit: RateLimitService = Depends(),
+    _rate_limit_result=Depends(rate_limit_dependency),
 ) -> TaskStatusResponse:
     """
     Анализ загруженного документа.
@@ -143,9 +142,6 @@ async def analyze_document(
         - Максимальный размер: 10MB
         - Форматы: PDF, JPEG, PNG, WebP, BMP
     """
-    # Проверка rate limit
-    await rate_limit.check()
-
     filename = file.filename or "unknown"
 
     logger.info("Начало анализа файла: %s, тип: %s", filename, file.content_type)

@@ -312,8 +312,8 @@ class DatabaseService:
                 if task:
                     return task.result
 
-            except SQLAlchemyError as e:
-                logger.exception("Failed to get task by hash %s: %s", image_hash, e)
+            except SQLAlchemyError:
+                logger.exception("Failed to get task by hash %s", image_hash)
                 return None
             else:
                 return None

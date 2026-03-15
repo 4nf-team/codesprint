@@ -1,28 +1,30 @@
-import os
+import asyncio
 import sys
 from logging.config import fileConfig
+from pathlib import Path
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 
 # Добавление корневого каталога в path
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Импортируем модели после определения Base
+from app.models import database  # noqa: E402, PLC0415
+
+target_metadata = database.Base.metadata
 
 config = context.config
 
 # Интерпретация конфигурационного файла
 fileConfig(config.config_file_name)
 
-# Импорт моделей
-from app.models.database import Base
-
-target_metadata = Base.metadata
-
 
 def get_url():
     """Получение URL базы данных из настроек."""
-    from app.core.config import settings
+    from app.core.config import settings  # noqa: PLC0415
 
     return settings.DATABASE_URL
 
@@ -41,22 +43,33 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def run_migrations_online():
-    """Запуск миграций в online режиме."""
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = get_url()
+def do_run_migrations(connection):
+    """Выполнение миграций с синхронным подключением."""
+    context.configure(connection=connection, target_metadata=target_metadata)
 
-    connectable = engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations():
+    """Запуск миграций в асинхронном режиме."""
+    url = get_url()
+
+    # Создаём асинхронный движок
+    engine = create_async_engine(
+        url,
         poolclass=pool.NullPool,
     )
 
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+    async with engine.connect() as connection:
+        await connection.run_sync(do_run_migrations)
 
-        with context.begin_transaction():
-            context.run_migrations()
+    await engine.dispose()
+
+
+def run_migrations_online():
+    """Запуск миграций в online режиме."""
+    asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

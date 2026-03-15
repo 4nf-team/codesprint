@@ -31,6 +31,7 @@ celery_app.conf.update(
         "app.workers.tasks.analyze_image_task": {"queue": "analysis"},
         "app.workers.tasks.batch_analyze_task": {"queue": "batch"},
         "app.workers.tasks.cleanup_old_tasks": {"queue": "maintenance"},
+        "app.workers.tasks.rotate_expiring_api_keys": {"queue": "maintenance"},
     },
     # Настройки worker'ов
     worker_prefetch_multiplier=1,
@@ -60,6 +61,10 @@ celery_app.conf.beat_schedule = {
     "health-check": {
         "task": "app.workers.tasks.health_check",
         "schedule": 60.0,  # Каждую минуту
+    },
+    "rotate-api-keys-daily": {
+        "task": "rotate_expiring_api_keys",
+        "schedule": crontab(hour=2, minute=0),  # Каждый день в 2:00
     },
 }
 

@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from app.api.v1.endpoints import analysis, health, metrics
+from app.api.v1.endpoints import analysis, auth, health, metrics, telegram
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.middleware.error_handler import ErrorHandlerMiddleware
@@ -69,6 +69,7 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    root_path="/api/v1",
 )
 
 # Middleware
@@ -95,9 +96,11 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ErrorHandlerMiddleware)
 
 # Роутеры API
-app.include_router(health.router, prefix="/api/v1", tags=["health"])
-app.include_router(analysis.router, prefix="/api/v1", tags=["analysis"])
-app.include_router(metrics.router, prefix="/api/v1", tags=["metrics"])
+app.include_router(health.router)
+app.include_router(analysis.router)
+app.include_router(metrics.router)
+app.include_router(auth.router)
+app.include_router(telegram.router)
 
 
 @app.get("/")
