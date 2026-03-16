@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Deepfake Detector Pro",
+  "version": "1.0",
+  "description": "Analyzes images to detect deepfakes.",
+  "action": {
+    "default_title": "Open Deepfake Analyzer"
+  },
+  "background": {
+    "scripts": ["background.js"]
+  }
+}

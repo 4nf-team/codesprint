@@ -1,0 +1,88 @@
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  width: 100%; /* Растягиваем на всю ширину панели */
+  margin: 0;
+  padding: 20px;
+  background-color: #1e1e2f;
+  color: #e0e0e0;
+  box-sizing: border-box;
+}
+
+h3 {
+  margin-top: 0;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+ /* Зона перетаскивания (Drag & Drop) */
+ #dropZone {
+   border: 2px dashed #4a4a6a;
+   border-radius: 12px;
+   padding: 40px 15px;
+   text-align: center;
+   color: #8b8baf;
+   cursor: pointer;
+   background-color: #252538;
+   transition: all 0.3s ease;
+   font-size: 14px;
+   margin-bottom: 15px;
+ }
+
+ #dropZone:hover {
+   background-color: #2d2d44;
+   border-color: #6c6ce5;
+   color: #ffffff;
+ }
+
+ /* Активное состояние, когда тащишь файл */
+ #dropZone.dragover {
+   background-color: #3b3b5c;
+   border-color: #00e5ff;
+   color: #00e5ff;
+   transform: scale(1.02);
+ }
+
+ /* Скрываем стандартный инпут */
+ #imageInput {
+   display: none;
+ }
+
+ /* Карточка с результатами */
+ #resultBox {
+   margin-top: 20px;
+   padding: 15px;
+   border-radius: 10px;
+   background: #2a2a40;
+   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+   display: none;
+   border-left: 4px solid #6c6ce5;
+   animation: fadeIn 0.4s ease-in-out;
+ }
+
+ /* Тексты внутри карточки */
+ #resultBox strong {
+   color: #ffffff;
+   font-size: 14px;
+ }
+
+ #status {
+   font-weight: bold;
+   font-size: 15px;
+   margin-left: 5px;
+ }
+
+ #explanation {
+   margin-top: 8px;
+   font-size: 13px;
+   line-height: 1.5;
+   color: #b0b0c0;
+ }
+
+ /* Плавное появление результатов */
+ @keyframes fadeIn {
+   from { opacity: 0; transform: translateY(-10px); }
+   to { opacity: 1; transform: translateY(0); }
+ }

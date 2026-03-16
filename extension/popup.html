@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deepfake Detector</title>
+  <style>
+    body { font-family: Arial, sans-serif; width: 320px; padding: 15px; margin: 0; }
+    h3 { margin-top: 0; text-align: center; }
+    
+    /* Стили для зоны драг-н-дропа */
+    #dropZone {
+      border: 2px dashed #aaa;
+      border-radius: 8px;
+      padding: 30px 10px;
+      text-align: center;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-color: #f9f9f9;
+    }
+    #dropZone:hover { background-color: #eef; border-color: #66b; }
+    #dropZone.dragover { background-color: #e0f7fa; border-color: #00bcd4; }
+    
+    /* Прячем стандартную скучную кнопку выбора файла */
+    #imageInput { display: none; }
+    
+    #resultBox { margin-top: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 5px; display: none; background: #fff; }
+  </style>
+</head>
+<body>
+   <h3>Deepfake Analyzer</h3>
+   
+   <div id="authSection" style="margin-bottom: 15px; text-align: center;">
+     <button id="loginBtn" style="padding: 8px 16px; background: #0088cc; color: white; border: none; border-radius: 4px; cursor: pointer;">Login with Telegram</button>
+     <p id="authStatus" style="font-size: 12px; color: #888; margin-top: 5px;"></p>
+   </div>
+   
+   <div id="dropZone">Drop image here<br>or click to select</div>
+   <input type="file" id="imageInput" accept="image/*" />
+
+   <div id="resultBox">
+     <strong>Status:</strong> <span id="status">Waiting...</span><br><br>
+     <strong>Explanation:</strong>
+     <p id="explanation"></p>
+   </div>
+
+   <script src="popup.js"></script>
+</body>
+</html>

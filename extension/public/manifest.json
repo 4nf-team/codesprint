@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Deepfake Detector Pro",
+  "version": "1.0",
+  "description": "Analyzes images to detect deepfakes.",
+  "action": {
+    "default_title": "Open Deepfake Analyzer",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "activeTab", "tabs"],
+  "host_permissions": ["http://127.0.0.1:8000/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://127.0.0.1:8000/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html"
+}
