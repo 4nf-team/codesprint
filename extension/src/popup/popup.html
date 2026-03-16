@@ -28,22 +28,18 @@
   </style>
 </head>
 <body>
-   <h3>Deepfake Analyzer</h3>
-   
-   <div id="authSection" style="margin-bottom: 15px; text-align: center;">
-     <button id="loginBtn" style="padding: 8px 16px; background: #0088cc; color: white; border: none; border-radius: 4px; cursor: pointer;">Login with Telegram</button>
-     <p id="authStatus" style="font-size: 12px; color: #888; margin-top: 5px;"></p>
-   </div>
-   
-   <div id="dropZone">Drop image here<br>or click to select</div>
-   <input type="file" id="imageInput" accept="image/*" />
-
-   <div id="resultBox">
-     <strong>Status:</strong> <span id="status">Waiting...</span><br><br>
-     <strong>Explanation:</strong>
-     <p id="explanation"></p>
-   </div>
-
-   <script src="popup.js"></script>
+  <h3>Deepfake Analyzer</h3>
+  <script async src="https://telegram.org/js/telegram-widget.js?23" data-telegram-login="codesprint_4nf_bot" data-size="large" data-auth-url="http://localhost/telegram/telegram/" data-request-access="write"></script>
+  <script async src="https://telegram.org/js/telegram-widget.js?23" data-telegram-login="codesprint_4nf_bot" data-size="large" data-auth-url="/telegram/telegram/" data-request-access="write"></script>
+  <div id="dropZone">Drop image here<br>or click to select</div>
+  <input type="file" id="imageInput" accept="image/*" />
+ 
+  <div id="resultBox">
+    <strong>Status:</strong> <span id="status">Waiting...</span><br><br>
+    <strong>Explanation:</strong>
+    <p id="explanation"></p>
+  </div>
+ 
+  <script src="popup.js"></script>
 </body>
 </html>

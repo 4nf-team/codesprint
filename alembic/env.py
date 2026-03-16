@@ -12,7 +12,7 @@ from alembic import context
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Импортируем модели после определения Base
-from app.models import database  # noqa: E402, PLC0415
+from app.models import database
 
 target_metadata = database.Base.metadata
 
